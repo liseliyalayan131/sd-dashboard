@@ -6,7 +6,7 @@ const TransactionSchema = new mongoose.Schema({
   customerPhone: { type: String, required: true, trim: true },
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
   productName: { type: String, required: true, trim: true },
-  productCode: { type: String, required: true, trim: true },
+  productCode: { type: String, default: '', trim: true },
   quantity: { type: Number, required: true, min: 1 },
   unitPrice: { type: Number, required: true, min: 0 },
   totalPrice: { type: Number, required: true, min: 0 },

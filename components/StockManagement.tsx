@@ -303,7 +303,6 @@ export default function StockManagement() {
               <label className="block text-sm font-medium text-gray-400 mb-2">Ürün Kodu</label>
               <input
                 type="text"
-                required
                 value={formData.code}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                 className="input-glass w-full"

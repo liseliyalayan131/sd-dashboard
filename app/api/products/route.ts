@@ -16,6 +16,11 @@ export async function POST(request: NextRequest) {
   try {
     await dbConnect()
     const data = await request.json()
+    
+    if (!data.code || data.code.trim() === '') {
+      data.code = `URN-${Date.now()}`
+    }
+    
     const product = await Product.create(data)
     return NextResponse.json(product, { status: 201 })
   } catch (error) {

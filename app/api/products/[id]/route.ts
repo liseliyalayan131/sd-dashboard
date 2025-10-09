@@ -7,6 +7,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     await dbConnect()
     const { id } = await params
     const data = await request.json()
+    
+    if (!data.code || data.code.trim() === '') {
+      data.code = `URN-${Date.now()}`
+    }
+    
     const product = await Product.findByIdAndUpdate(id, data, { new: true })
     if (!product) return NextResponse.json({ error: 'Bulunamadı' }, { status: 404 })
     return NextResponse.json(product)
