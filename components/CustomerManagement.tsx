@@ -123,8 +123,33 @@ export default function CustomerManagement() {
     }
   }
 
+  const capitalizeFirstLetter = (str: string) => {
+    return str.charAt(0).toLocaleUpperCase('tr-TR') + str.slice(1).toLocaleLowerCase('tr-TR')
+  }
+
+  const formatPhone = (phone: string) => {
+    const digits = phone.replace(/\D/g, '')
+    if (digits.startsWith('0')) {
+      const withoutZero = digits.slice(1)
+      if (withoutZero.length === 10) {
+        return `${withoutZero.slice(0,3)} ${withoutZero.slice(3,6)} ${withoutZero.slice(6,10)}`
+      }
+    }
+    if (digits.length === 10) {
+      return `${digits.slice(0,3)} ${digits.slice(3,6)} ${digits.slice(6,10)}`
+    }
+    return phone
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    const formattedData = {
+      ...formData,
+      firstName: capitalizeFirstLetter(formData.firstName.trim()),
+      lastName: formData.lastName.trim().toLocaleUpperCase('tr-TR'),
+      phone: formatPhone(formData.phone.trim())
+    }
     
     try {
       const url = editingCustomer ? `/api/customers/${editingCustomer._id}` : '/api/customers'
@@ -133,7 +158,7 @@ export default function CustomerManagement() {
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formattedData)
       })
 
       if (response.ok) {
