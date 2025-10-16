@@ -12,6 +12,7 @@ const TransactionSchema = new mongoose.Schema({
   totalPrice: { type: Number, required: true, min: 0 },
   type: { type: String, enum: ['satis', 'iade'], default: 'satis' },
   paymentMethod: { type: String, enum: ['nakit', 'kart', 'havale'], default: 'nakit' },
+  installments: { type: Number, default: 1, min: 1 },
   notes: { type: String, default: '' }
 }, { timestamps: true })
 

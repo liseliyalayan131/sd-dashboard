@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Wrench, Calendar, DollarSign, User, Phone, Package, CheckCircle, XCircle, Edit, Trash2, Search, TrendingUp, TrendingDown, Wallet, Eye } from 'lucide-react'
+import { Plus, Wrench, Calendar, DollarSign, User, Phone, Package, CheckCircle, XCircle, Edit, Trash2, Search, TrendingUp, TrendingDown, Wallet, Eye, MessageCircle } from 'lucide-react'
 import { useToast } from '@/components/ui/ToastContext'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -222,6 +222,33 @@ export default function ServiceManagement() {
         p.productId === productId ? { ...p, quantity } : p
       )
     })
+  }
+
+  const sendWhatsAppNotification = (service: Service) => {
+    const cleanPhone = service.customerPhone.replace(/\D/g, '')
+    const phone = cleanPhone.startsWith('0') ? cleanPhone.slice(1) : cleanPhone
+    
+    let message = ''
+    const firstName = service.customerName.split(' ')[0]
+    
+    switch (service.status) {
+      case 'devam-ediyor':
+        message = `Merhaba ${firstName}, ${service.brand} ${service.model} servisiniz şu anda devam ediyor. En kısa sürede tamamlanacak.`
+        break
+      case 'cozuldu':
+        message = `Merhaba ${firstName}, ${service.brand} ${service.model} servisiniz tamamlandı! ✅ Teslim alabilirsiniz.`
+        break
+      case 'cozulmedi':
+        message = `Merhaba ${firstName}, ${service.brand} ${service.model} servisinizle ilgili görüşmemiz gerekiyor. Lütfen bizi arayın.`
+        break
+      case 'beklemede':
+        message = `Merhaba ${firstName}, ${service.brand} ${service.model} servisinizi aldık. Değerlendirmemiz tamamlandığında size bilgi vereceğiz.`
+        break
+    }
+    
+    const whatsappUrl = `https://wa.me/90${phone}?text=${encodeURIComponent(message)}`
+    window.open(whatsappUrl, '_blank')
+    showToast('WhatsApp açılıyor...', 'success')
   }
 
   const handleDelete = async (id: string) => {
@@ -909,6 +936,13 @@ export default function ServiceManagement() {
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex gap-2">
+                      <button
+                        onClick={() => sendWhatsAppNotification(service)}
+                        className="text-green-400 hover:text-green-300 p-1 rounded transition-colors"
+                        title="WhatsApp ile bildir"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                      </button>
                       <button
                         onClick={() => startEdit(service)}
                         className="text-blue-400 hover:text-blue-300 p-1 rounded transition-colors"

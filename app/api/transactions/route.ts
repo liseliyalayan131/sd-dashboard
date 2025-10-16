@@ -3,6 +3,7 @@ import dbConnect from '@/lib/mongodb'
 import Transaction from '@/lib/models/Transaction'
 import Product from '@/lib/models/Product'
 import Customer from '@/lib/models/Customer'
+import StockMovement from '@/lib/models/StockMovement'
 
 export async function GET() {
   try {
@@ -30,12 +31,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Yetersiz stok!' }, { status: 400 })
     }
 
+    const previousStock = product.stock
+
     if (data.type === 'satis') {
       product.stock -= data.quantity
     } else if (data.type === 'iade') {
       product.stock += data.quantity
     }
     await product.save()
+
+    await StockMovement.create({
+      productId: product._id,
+      productName: product.name,
+      productCode: product.code,
+      type: data.type,
+      quantity: data.quantity,
+      previousStock,
+      newStock: product.stock,
+      reason: data.type === 'satis' ? 'Satış işlemi' : 'İade işlemi',
+      relatedType: 'transaction',
+      notes: `Müşteri: ${data.customerName}`
+    })
 
     const customer = await Customer.findById(data.customerId)
     if (customer && data.type === 'satis') {

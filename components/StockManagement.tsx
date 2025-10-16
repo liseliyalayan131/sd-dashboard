@@ -1,10 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, Package, Search, AlertTriangle, TrendingDown, TrendingUp, DollarSign, Wallet, BarChart3 } from 'lucide-react'
+import { Plus, Edit, Trash2, Package, Search, AlertTriangle, TrendingDown, TrendingUp, DollarSign, Wallet, BarChart3, History, Clock, CheckSquare, Square } from 'lucide-react'
 import { useToast } from '@/components/ui/ToastContext'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import CustomSelect from '@/components/ui/CustomSelect'
+import Modal from '@/components/ui/Modal'
+import { ModalBody, ModalFooter } from '@/components/ui/ModalParts'
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
 
 interface Product {
   _id: string
@@ -32,6 +35,28 @@ interface ProductForm {
   unit: string
 }
 
+interface StockMovement {
+  _id: string
+  productId: string
+  productName: string
+  productCode: string
+  type: string
+  quantity: number
+  previousStock: number
+  newStock: number
+  reason: string
+  relatedType: string
+  notes: string
+  createdAt: string
+}
+
+interface StockAdjustmentForm {
+  quantity: number
+  type: 'giris' | 'cikis' | 'duzeltme'
+  reason: string
+  notes: string
+}
+
 export default function StockManagement() {
   const { showToast } = useToast()
   const [products, setProducts] = useState<Product[]>([])
@@ -41,6 +66,20 @@ export default function StockManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [showMovementsModal, setShowMovementsModal] = useState(false)
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false)
+  const [selectedProductForMovements, setSelectedProductForMovements] = useState<Product | null>(null)
+  const [selectedProductForAdjustment, setSelectedProductForAdjustment] = useState<Product | null>(null)
+  const [movements, setMovements] = useState<StockMovement[]>([])
+  const [loadingMovements, setLoadingMovements] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [deleteBulkConfirm, setDeleteBulkConfirm] = useState(false)
+  const [adjustmentForm, setAdjustmentForm] = useState<StockAdjustmentForm>({
+    quantity: 0,
+    type: 'giris',
+    reason: '',
+    notes: ''
+  })
   const [formData, setFormData] = useState<ProductForm>({
     name: '',
     code: '',
@@ -68,6 +107,102 @@ export default function StockManagement() {
       console.error('Ürünler alınamadı:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchMovements = async (productId: string) => {
+    setLoadingMovements(true)
+    try {
+      const response = await fetch(`/api/stock-movements?productId=${productId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setMovements(data)
+      }
+    } catch (error) {
+      console.error('Hareketler alınamadı:', error)
+    } finally {
+      setLoadingMovements(false)
+    }
+  }
+
+  const handleShowMovements = async (product: Product) => {
+    setSelectedProductForMovements(product)
+    setShowMovementsModal(true)
+    await fetchMovements(product._id)
+  }
+
+  const handleShowAdjustment = (product: Product) => {
+    setSelectedProductForAdjustment(product)
+    setShowAdjustmentModal(true)
+    setAdjustmentForm({
+      quantity: 0,
+      type: 'giris',
+      reason: '',
+      notes: ''
+    })
+  }
+
+  const handleAdjustmentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!selectedProductForAdjustment || adjustmentForm.quantity <= 0) {
+      showToast('Lütfen geçerli bir miktar girin', 'warning')
+      return
+    }
+
+    try {
+      const product = selectedProductForAdjustment
+      const previousStock = product.stock
+      let newStock = product.stock
+
+      if (adjustmentForm.type === 'giris') {
+        newStock += adjustmentForm.quantity
+      } else if (adjustmentForm.type === 'cikis') {
+        newStock -= adjustmentForm.quantity
+      } else {
+        newStock = adjustmentForm.quantity
+      }
+
+      if (newStock < 0) {
+        showToast('Stok negatif olamaz!', 'error')
+        return
+      }
+
+      const updateResponse = await fetch(`/api/products/${product._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...product, stock: newStock })
+      })
+
+      if (!updateResponse.ok) {
+        showToast('Stok güncellenemedi!', 'error')
+        return
+      }
+
+      await fetch('/api/stock-movements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: product._id,
+          productName: product.name,
+          productCode: product.code,
+          type: adjustmentForm.type,
+          quantity: adjustmentForm.quantity,
+          previousStock,
+          newStock,
+          reason: adjustmentForm.reason,
+          relatedType: 'manual',
+          notes: adjustmentForm.notes
+        })
+      })
+
+      await fetchProducts()
+      setShowAdjustmentModal(false)
+      setSelectedProductForAdjustment(null)
+      showToast('Stok başarıyla güncellendi!', 'success')
+    } catch (error) {
+      console.error('Stok düzeltme hatası:', error)
+      showToast('Bir hata oluştu!', 'error')
     }
   }
 
@@ -111,6 +246,39 @@ export default function StockManagement() {
       showToast('Bir hata oluştu!', 'error')
     }
     setDeleteConfirm(null)
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredProducts.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(filteredProducts.map(p => p._id))
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) 
+        ? prev.filter(selectedId => selectedId !== id)
+        : [...prev, id]
+    )
+  }
+
+  const handleBulkDelete = async () => {
+    try {
+      await Promise.all(
+        selectedIds.map(id => 
+          fetch(`/api/products/${id}`, { method: 'DELETE' })
+        )
+      )
+      await fetchProducts()
+      setSelectedIds([])
+      setDeleteBulkConfirm(false)
+      showToast(`${selectedIds.length} ürün silindi!`, 'success')
+    } catch (error) {
+      console.error('Toplu silme hatası:', error)
+      showToast('Bir hata oluştu!', 'error')
+    }
   }
 
   const resetForm = () => {
@@ -157,6 +325,15 @@ export default function StockManagement() {
     return matchesSearch && matchesCategory
   })
 
+  const {
+    displayedItems: displayedProducts,
+    hasMore,
+    isLoading: isLoadingMore,
+    observerTarget,
+    totalItems,
+    displayedCount
+  } = useInfiniteScroll(filteredProducts, { itemsPerPage: 50 })
+
   const totalProducts = products.length
   const lowStockProducts = products.filter(p => p.stock <= p.minStock).length
   const totalStockValue = products.reduce((sum, p) => sum + (p.stock * p.price), 0)
@@ -186,7 +363,7 @@ export default function StockManagement() {
 
   return (
     <div className="space-y-6 animate-fade-in-up pb-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
             <Package className="h-8 w-8 text-blue-400" />
@@ -194,11 +371,46 @@ export default function StockManagement() {
           </h1>
           <p className="text-gray-400">Ürün stoklarınızı yönetin</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="glass-button btn-primary mt-4 md:mt-0 flex items-center gap-2">
-          <Plus className="h-5 w-5" />
-          <span>Yeni Ürün</span>
-        </button>
+        <div className="flex gap-3">
+          {selectedIds.length > 0 && (
+            <button 
+              onClick={() => setDeleteBulkConfirm(true)} 
+              className="glass-button bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20 flex items-center gap-2"
+            >
+              <Trash2 className="h-5 w-5" />
+              <span>Seçilenleri Sil ({selectedIds.length})</span>
+            </button>
+          )}
+          <button onClick={() => setShowForm(true)} className="glass-button btn-primary flex items-center gap-2">
+            <Plus className="h-5 w-5" />
+            <span>Yeni Ürün</span>
+          </button>
+        </div>
       </div>
+
+      {selectedIds.length > 0 && (
+        <div className="glass-card bg-blue-950/20 border border-blue-500/30 p-4 flex items-center justify-between animate-scale-in">
+          <div className="flex items-center gap-3">
+            <CheckSquare className="w-5 h-5 text-blue-400" />
+            <span className="text-white font-medium">{selectedIds.length} ürün seçildi</span>
+          </div>
+          <button 
+            onClick={() => setSelectedIds([])} 
+            className="text-sm text-blue-400 hover:text-blue-300"
+          >
+            Seçimi Temizle
+          </button>
+        </div>
+      )}
+
+      {totalItems > 0 && (
+        <div className="glass-card p-4">
+          <div className="flex items-center justify-between text-sm text-gray-400">
+            <span>Toplam {totalItems} üründen {displayedCount} tanesi gösteriliyor</span>
+            {hasMore && <span className="text-blue-400">Daha fazla görmek için aşağı kaydırın</span>}
+          </div>
+        </div>
+      )}
 
       <div className="glass-card ios-shadow p-6">
         <div className="flex items-center justify-between mb-6">
@@ -404,6 +616,18 @@ export default function StockManagement() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/10">
+                <th className="px-4 py-3 w-12">
+                  <button
+                    onClick={toggleSelectAll}
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    {selectedIds.length === filteredProducts.length && filteredProducts.length > 0 ? (
+                      <CheckSquare className="w-5 h-5 text-blue-400" />
+                    ) : (
+                      <Square className="w-5 h-5" />
+                    )}
+                  </button>
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Ürün</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Stok</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Fiyat</th>
@@ -412,8 +636,20 @@ export default function StockManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10">
-              {filteredProducts.map((product) => (
-                <tr key={product._id}>
+              {displayedProducts.map((product) => (
+                <tr key={product._id} className={selectedIds.includes(product._id) ? 'bg-blue-500/5' : ''}>
+                  <td className="px-4 py-4">
+                    <button
+                      onClick={() => toggleSelect(product._id)}
+                      className="text-gray-400 hover:text-white transition-colors"
+                    >
+                      {selectedIds.includes(product._id) ? (
+                        <CheckSquare className="w-5 h-5 text-blue-400" />
+                      ) : (
+                        <Square className="w-5 h-5" />
+                      )}
+                    </button>
+                  </td>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-3">
                       <Package className="h-5 w-5 text-gray-400" />
@@ -459,6 +695,20 @@ export default function StockManagement() {
                   <td className="px-4 py-4">
                     <div className="flex gap-2">
                       <button
+                        onClick={() => handleShowMovements(product)}
+                        className="text-purple-400 hover:text-purple-300 p-1 transition-colors"
+                        title="Stok Hareketleri"
+                      >
+                        <History className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleShowAdjustment(product)}
+                        className="text-green-400 hover:text-green-300 p-1 transition-colors"
+                        title="Stok Düzelt"
+                      >
+                        <TrendingUp className="h-4 w-4" />
+                      </button>
+                      <button
                         onClick={() => startEdit(product)}
                         className="text-blue-400 hover:text-blue-300 p-1 transition-colors"
                       >
@@ -477,8 +727,19 @@ export default function StockManagement() {
             </tbody>
           </table>
         </div>
+
+        {hasMore && (
+          <div ref={observerTarget} className="py-8 flex justify-center">
+            {isLoadingMore && (
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm text-gray-400">Yükleniyor...</span>
+              </div>
+            )}
+          </div>
+        )}
         
-        {filteredProducts.length === 0 && (
+        {displayedProducts.length === 0 && (
           <div className="text-center py-12">
             <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-400">
@@ -495,6 +756,191 @@ export default function StockManagement() {
           onConfirm={() => handleDelete(deleteConfirm)}
           onCancel={() => setDeleteConfirm(null)}
         />
+      )}
+
+      {deleteBulkConfirm && (
+        <ConfirmDialog
+          title="Toplu Silme"
+          message={`${selectedIds.length} ürünü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`}
+          onConfirm={handleBulkDelete}
+          onCancel={() => setDeleteBulkConfirm(false)}
+        />
+      )}
+
+      {showMovementsModal && selectedProductForMovements && (
+        <Modal
+          isOpen={showMovementsModal}
+          onClose={() => {
+            setShowMovementsModal(false)
+            setSelectedProductForMovements(null)
+            setMovements([])
+          }}
+          title="Stok Hareketleri"
+          description={`${selectedProductForMovements.name} - ${selectedProductForMovements.code}`}
+          icon={<History className="w-6 h-6 text-purple-400" />}
+          size="lg"
+        >
+          <ModalBody>
+            {loadingMovements ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : movements.length > 0 ? (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {movements.map((movement) => (
+                  <div key={movement._id} className="glass-card p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 glass rounded-lg flex items-center justify-center ${
+                          movement.type === 'giris' || movement.type === 'iade' 
+                            ? 'border border-green-500/30' 
+                            : movement.type === 'satis' || movement.type === 'cikis' || movement.type === 'servis'
+                            ? 'border border-red-500/30'
+                            : 'border border-blue-500/30'
+                        }`}>
+                          {movement.type === 'giris' || movement.type === 'iade' ? (
+                            <TrendingUp className="w-5 h-5 text-green-400" />
+                          ) : movement.type === 'satis' || movement.type === 'cikis' || movement.type === 'servis' ? (
+                            <TrendingDown className="w-5 h-5 text-red-400" />
+                          ) : (
+                            <Package className="w-5 h-5 text-blue-400" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium text-white capitalize">
+                            {movement.type === 'giris' ? 'Stok Girişi' :
+                             movement.type === 'cikis' ? 'Stok Çıkışı' :
+                             movement.type === 'duzeltme' ? 'Stok Düzeltme' :
+                             movement.type === 'satis' ? 'Satış' :
+                             movement.type === 'iade' ? 'İade' :
+                             movement.type === 'servis' ? 'Servis' : movement.type}
+                          </div>
+                          <div className="text-xs text-gray-400">{movement.reason || 'Sebep belirtilmemiş'}</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`text-sm font-bold ${
+                          movement.type === 'giris' || movement.type === 'iade' ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                          {movement.type === 'giris' || movement.type === 'iade' ? '+' : '-'}{movement.quantity}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {movement.previousStock} → {movement.newStock}
+                        </div>
+                      </div>
+                    </div>
+                    {movement.notes && (
+                      <div className="text-xs text-gray-400 mt-2 pl-13">
+                        {movement.notes}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1 text-xs text-gray-500 mt-2 pl-13">
+                      <Clock className="w-3 h-3" />
+                      {new Date(movement.createdAt).toLocaleString('tr-TR')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-400">
+                Henüz stok hareketi yok
+              </div>
+            )}
+          </ModalBody>
+        </Modal>
+      )}
+
+      {showAdjustmentModal && selectedProductForAdjustment && (
+        <Modal
+          isOpen={showAdjustmentModal}
+          onClose={() => {
+            setShowAdjustmentModal(false)
+            setSelectedProductForAdjustment(null)
+          }}
+          title="Stok Düzeltme"
+          description={`${selectedProductForAdjustment.name} - Mevcut: ${selectedProductForAdjustment.stock} ${selectedProductForAdjustment.unit}`}
+          icon={<TrendingUp className="w-6 h-6 text-green-400" />}
+          size="md"
+        >
+          <form onSubmit={handleAdjustmentSubmit}>
+            <ModalBody>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">İşlem Türü</label>
+                  <CustomSelect
+                    value={adjustmentForm.type}
+                    onChange={(value) => setAdjustmentForm({ ...adjustmentForm, type: value as any })}
+                    options={[
+                      { value: 'giris', label: 'Stok Girişi (+)' },
+                      { value: 'cikis', label: 'Stok Çıkışı (-)' },
+                      { value: 'duzeltme', label: 'Stok Düzeltme (=)' }
+                    ]}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    {adjustmentForm.type === 'duzeltme' ? 'Yeni Stok Miktarı' : 'Miktar'}
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={adjustmentForm.quantity || ''}
+                    onChange={(e) => setAdjustmentForm({ ...adjustmentForm, quantity: parseInt(e.target.value) || 0 })}
+                    className="input-glass w-full"
+                  />
+                  {adjustmentForm.quantity > 0 && adjustmentForm.type !== 'duzeltme' && (
+                    <div className="text-xs text-gray-400 mt-2">
+                      Yeni stok: {adjustmentForm.type === 'giris' 
+                        ? selectedProductForAdjustment.stock + adjustmentForm.quantity 
+                        : selectedProductForAdjustment.stock - adjustmentForm.quantity} {selectedProductForAdjustment.unit}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Sebep *</label>
+                  <input
+                    type="text"
+                    required
+                    value={adjustmentForm.reason}
+                    onChange={(e) => setAdjustmentForm({ ...adjustmentForm, reason: e.target.value })}
+                    className="input-glass w-full"
+                    placeholder="Örn: Sayım farkı, Fire, Yeni alım"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Notlar</label>
+                  <textarea
+                    rows={2}
+                    value={adjustmentForm.notes}
+                    onChange={(e) => setAdjustmentForm({ ...adjustmentForm, notes: e.target.value })}
+                    className="input-glass w-full"
+                    placeholder="Ek açıklama..."
+                  />
+                </div>
+              </div>
+            </ModalBody>
+
+            <ModalFooter>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdjustmentModal(false)
+                  setSelectedProductForAdjustment(null)
+                }}
+                className="glass-button btn-secondary flex-1"
+              >
+                İptal
+              </button>
+              <button type="submit" className="glass-button btn-primary flex-1">
+                Kaydet
+              </button>
+            </ModalFooter>
+          </form>
+        </Modal>
       )}
     </div>
   )

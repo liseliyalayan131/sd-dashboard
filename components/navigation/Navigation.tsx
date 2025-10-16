@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -77,6 +77,38 @@ export default function Navigation({ onLogout }: NavigationProps) {
   const [isResetting, setIsResetting] = useState(false)
   const [error, setError] = useState('')
   const pathname = usePathname()
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    const AUTO_LOGOUT_TIME = 15 * 60 * 1000
+
+    const resetTimer = () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+
+      timeoutRef.current = setTimeout(() => {
+        handleLogout()
+      }, AUTO_LOGOUT_TIME)
+    }
+
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousemove']
+
+    events.forEach(event => {
+      document.addEventListener(event, resetTimer)
+    })
+
+    resetTimer()
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+      events.forEach(event => {
+        document.removeEventListener(event, resetTimer)
+      })
+    }
+  }, [])
 
   const handleLogout = async () => {
     setIsLoggingOut(true)

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Plus, ShoppingCart, TrendingUp, DollarSign, Calendar, Package, User, Phone, BarChart3, TrendingDown, Wallet } from 'lucide-react'
 import { useToast } from '@/components/ui/ToastContext'
 import CustomSelect from '@/components/ui/CustomSelect'
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
 
 interface Customer {
   _id: string
@@ -32,6 +33,7 @@ interface Transaction {
   totalPrice: number
   type: string
   paymentMethod: string
+  installments: number
   notes: string
   createdAt: string
 }
@@ -42,6 +44,7 @@ interface TransactionForm {
   quantity: number
   type: 'satis' | 'iade'
   paymentMethod: 'nakit' | 'kart' | 'havale'
+  installments: number
   notes: string
 }
 
@@ -60,6 +63,7 @@ export default function TransactionManagement() {
     quantity: 1,
     type: 'satis',
     paymentMethod: 'nakit',
+    installments: 1,
     notes: ''
   })
 
@@ -150,6 +154,7 @@ export default function TransactionManagement() {
       quantity: 1,
       type: 'satis',
       paymentMethod: 'nakit',
+      installments: 1,
       notes: ''
     })
     setSelectedProduct(null)
@@ -181,6 +186,17 @@ export default function TransactionManagement() {
 
     return filtered
   }
+
+  const filteredTransactions = filterTransactionsByPeriod(transactions)
+
+  const {
+    displayedItems: displayedTransactions,
+    hasMore,
+    isLoading: isLoadingMore,
+    observerTarget,
+    totalItems,
+    displayedCount
+  } = useInfiniteScroll(filteredTransactions, { itemsPerPage: 50 })
 
   const getReportStats = () => {
     const filteredByPeriod = filterTransactionsByPeriod(transactions)
@@ -252,6 +268,16 @@ export default function TransactionManagement() {
     { value: 'nakit', label: 'Nakit' },
     { value: 'kart', label: 'Kredi Kartı' },
     { value: 'havale', label: 'Havale/EFT' }
+  ]
+
+  const installmentOptions = [
+    { value: '1', label: 'Peşin' },
+    { value: '2', label: '2 Taksit' },
+    { value: '3', label: '3 Taksit' },
+    { value: '4', label: '4 Taksit' },
+    { value: '6', label: '6 Taksit' },
+    { value: '9', label: '9 Taksit' },
+    { value: '12', label: '12 Taksit' }
   ]
 
   const periodOptions = [
@@ -378,21 +404,51 @@ export default function TransactionManagement() {
             </div>
 
             {selectedProduct && (
-              <div className="lg:col-span-3 glass-card p-4 bg-blue-950/20">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-400">Stok</p>
-                    <p className="text-white font-medium">{selectedProduct.stock} {selectedProduct.unit}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Birim Fiyat</p>
-                    <p className="text-green-400 font-medium">{formatCurrency(selectedProduct.price)}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Toplam</p>
-                    <p className="text-blue-400 font-bold">{formatCurrency(selectedProduct.price * formData.quantity)}</p>
+              <div className="lg:col-span-3 space-y-4">
+                <div className="glass-card p-4 bg-blue-950/20">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-400">Stok</p>
+                      <p className="text-white font-medium">{selectedProduct.stock} {selectedProduct.unit}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Birim Fiyat</p>
+                      <p className="text-green-400 font-medium">{formatCurrency(selectedProduct.price)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Toplam</p>
+                      <p className="text-blue-400 font-bold">{formatCurrency(selectedProduct.price * formData.quantity)}</p>
+                    </div>
                   </div>
                 </div>
+
+                {formData.paymentMethod === 'kart' && formData.installments > 1 && (
+                  <div className="glass-card p-4 bg-green-950/20 border border-green-500/30">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium text-green-400 flex items-center gap-2">
+                        <Wallet className="w-4 h-4" />
+                        Taksit Planı
+                      </h4>
+                      <span className="text-xs text-gray-400">{formData.installments} Taksit</span>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">Toplam Tutar</p>
+                        <p className="text-white font-bold">{formatCurrency(selectedProduct.price * formData.quantity)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">Aylık Taksit</p>
+                        <p className="text-green-400 font-bold">
+                          {formatCurrency((selectedProduct.price * formData.quantity) / formData.installments)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">Taksit Sayısı</p>
+                        <p className="text-blue-400 font-bold">{formData.installments}x</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -421,10 +477,21 @@ export default function TransactionManagement() {
               <label className="block text-sm font-medium text-gray-400 mb-2">Ödeme Yöntemi</label>
               <CustomSelect
                 value={formData.paymentMethod}
-                onChange={(value) => setFormData({ ...formData, paymentMethod: value as any })}
+                onChange={(value) => setFormData({ ...formData, paymentMethod: value as any, installments: value === 'kart' ? formData.installments : 1 })}
                 options={paymentOptions}
               />
             </div>
+
+            {formData.paymentMethod === 'kart' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Taksit Seçeneği</label>
+                <CustomSelect
+                  value={formData.installments.toString()}
+                  onChange={(value) => setFormData({ ...formData, installments: parseInt(value) })}
+                  options={installmentOptions}
+                />
+              </div>
+            )}
 
             <div className="lg:col-span-3">
               <label className="block text-sm font-medium text-gray-400 mb-2">Notlar</label>
@@ -448,6 +515,15 @@ export default function TransactionManagement() {
         </div>
       )}
 
+      {totalItems > 0 && (
+        <div className="glass-card p-4">
+          <div className="flex items-center justify-between text-sm text-gray-400">
+            <span>Toplam {totalItems} işlemden {displayedCount} tanesi gösteriliyor</span>
+            {hasMore && <span className="text-blue-400">Daha fazla görmek için aşağı kaydırın</span>}
+          </div>
+        </div>
+      )}
+
       <div className="glass-card">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -461,7 +537,7 @@ export default function TransactionManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10">
-              {transactions.map((transaction) => (
+              {displayedTransactions.map((transaction) => (
                 <tr key={transaction._id}>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-3">
@@ -492,7 +568,12 @@ export default function TransactionManagement() {
                     <div className={`text-sm font-bold ${transaction.type === 'satis' ? 'text-green-400' : 'text-red-400'}`}>
                       {formatCurrency(transaction.totalPrice)}
                     </div>
-                    <div className="text-xs text-gray-400 capitalize">{transaction.paymentMethod}</div>
+                    <div className="text-xs text-gray-400 capitalize">
+                      {transaction.paymentMethod}
+                      {transaction.paymentMethod === 'kart' && transaction.installments > 1 && (
+                        <span className="ml-1">({transaction.installments}x)</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-2">
@@ -505,8 +586,19 @@ export default function TransactionManagement() {
             </tbody>
           </table>
         </div>
+
+        {hasMore && (
+          <div ref={observerTarget} className="py-8 flex justify-center">
+            {isLoadingMore && (
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm text-gray-400">Yükleniyor...</span>
+              </div>
+            )}
+          </div>
+        )}
         
-        {transactions.length === 0 && (
+        {displayedTransactions.length === 0 && (
           <div className="text-center py-12">
             <ShoppingCart className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-400">Henüz işlem kaydı yok</p>
