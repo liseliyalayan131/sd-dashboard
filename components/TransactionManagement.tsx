@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, ShoppingCart, TrendingUp, DollarSign, Calendar, Package, User, Phone, BarChart3, TrendingDown, Wallet, Trash2, CheckSquare, Square } from 'lucide-react'
+import { Plus, ShoppingCart, TrendingUp, DollarSign, Calendar, Package, User, Phone, BarChart3, TrendingDown, Wallet, Trash2, CheckSquare, Square, Search } from 'lucide-react'
 import { useToast } from '@/components/ui/ToastContext'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
@@ -63,6 +63,10 @@ export default function TransactionManagement() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [customerSearchTerm, setCustomerSearchTerm] = useState('')
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+  const [productSearchTerm, setProductSearchTerm] = useState('')
+  const [showProductDropdown, setShowProductDropdown] = useState(false)
   const [formData, setFormData] = useState<TransactionForm>({
     customerId: '',
     productId: '',
@@ -85,6 +89,23 @@ export default function TransactionManagement() {
       setSelectedProduct(null)
     }
   }, [formData.productId, products])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (showCustomerDropdown && !target.closest('.customer-dropdown-container')) {
+        setShowCustomerDropdown(false)
+        setCustomerSearchTerm('')
+      }
+      if (showProductDropdown && !target.closest('.product-dropdown-container')) {
+        setShowProductDropdown(false)
+        setProductSearchTerm('')
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showCustomerDropdown, showProductDropdown])
 
   const fetchData = async () => {
     setLoading(true)
@@ -170,6 +191,10 @@ export default function TransactionManagement() {
     })
     setSelectedProduct(null)
     setShowForm(false)
+    setCustomerSearchTerm('')
+    setShowCustomerDropdown(false)
+    setProductSearchTerm('')
+    setShowProductDropdown(false)
   }
 
   const toggleSelectAll = () => {
@@ -288,6 +313,25 @@ export default function TransactionManagement() {
   }
 
   const stats = getReportStats()
+
+  const filteredCustomers = customers.filter(customer => {
+    const searchLower = customerSearchTerm.toLowerCase()
+    const fullName = `${customer.firstName} ${customer.lastName}`.toLowerCase()
+    return (
+      fullName.includes(searchLower) ||
+      customer.phone.includes(customerSearchTerm)
+    )
+  })
+
+  const selectedCustomer = customers.find(c => c._id === formData.customerId)
+
+  const filteredProducts = products.filter(product => {
+    const searchLower = productSearchTerm.toLowerCase()
+    return (
+      product.name.toLowerCase().includes(searchLower) ||
+      product.code.toLowerCase().includes(searchLower)
+    )
+  })
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('tr-TR', {
@@ -460,22 +504,156 @@ export default function TransactionManagement() {
         <div className="glass-card p-6 animate-scale-in">
           <h3 className="text-lg font-semibold text-white mb-4">Yeni İşlem</h3>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-3 relative customer-dropdown-container">
               <label className="block text-sm font-medium text-gray-400 mb-2">Müşteri</label>
-              <CustomSelect
-                value={formData.customerId}
-                onChange={(value) => setFormData({ ...formData, customerId: value })}
-                options={customerOptions}
-              />
+              <div className="relative">
+                <div 
+                  className="input-glass w-full cursor-pointer flex items-center justify-between"
+                  onClick={() => setShowCustomerDropdown(!showCustomerDropdown)}
+                >
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-gray-400" />
+                    {selectedCustomer ? (
+                      <span>{selectedCustomer.firstName} {selectedCustomer.lastName} - {selectedCustomer.phone}</span>
+                    ) : (
+                      <span className="text-gray-400">Müşteri seçin veya ara...</span>
+                    )}
+                  </div>
+                  <Search className="w-4 h-4 text-gray-400" />
+                </div>
+                
+                {showCustomerDropdown && (
+                  <div className="absolute z-50 w-full mt-2 glass-card border border-white/10 rounded-xl max-h-80 overflow-hidden">
+                    <div className="p-3 border-b border-white/10 sticky top-0 glass">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="İsim veya telefon ara..."
+                          value={customerSearchTerm}
+                          onChange={(e) => setCustomerSearchTerm(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 glass border border-white/10 rounded-lg focus:outline-none focus:border-blue-500/50"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {filteredCustomers.length > 0 ? (
+                        filteredCustomers.map((customer) => (
+                          <button
+                            key={customer._id}
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, customerId: customer._id })
+                              setShowCustomerDropdown(false)
+                              setCustomerSearchTerm('')
+                            }}
+                            className={`w-full px-4 py-3 text-left hover:bg-white/5 transition-colors border-b border-white/5 ${
+                              formData.customerId === customer._id ? 'bg-blue-500/10' : ''
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <User className="w-4 h-4 text-gray-400" />
+                              <div>
+                                <div className="text-sm font-medium text-white">
+                                  {customer.firstName} {customer.lastName}
+                                </div>
+                                <div className="text-xs text-gray-400 flex items-center gap-1">
+                                  <Phone className="w-3 h-3" />
+                                  {customer.phone}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-4 py-8 text-center text-gray-400 text-sm">
+                          Müşteri bulunamadı
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-3 relative product-dropdown-container">
               <label className="block text-sm font-medium text-gray-400 mb-2">Ürün</label>
-              <CustomSelect
-                value={formData.productId}
-                onChange={(value) => setFormData({ ...formData, productId: value })}
-                options={productOptions}
-              />
+              <div className="relative">
+                <div 
+                  className="input-glass w-full cursor-pointer flex items-center justify-between"
+                  onClick={() => setShowProductDropdown(!showProductDropdown)}
+                >
+                  <div className="flex items-center gap-2">
+                    <Package className="w-4 h-4 text-gray-400" />
+                    {selectedProduct ? (
+                      <span>{selectedProduct.name} ({selectedProduct.code}) - Stok: {selectedProduct.stock} {selectedProduct.unit}</span>
+                    ) : (
+                      <span className="text-gray-400">Ürün seçin veya ara...</span>
+                    )}
+                  </div>
+                  <Search className="w-4 h-4 text-gray-400" />
+                </div>
+                
+                {showProductDropdown && (
+                  <div className="absolute z-50 w-full mt-2 glass-card border border-white/10 rounded-xl max-h-80 overflow-hidden">
+                    <div className="p-3 border-b border-white/10 sticky top-0 glass">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Ürün adı veya kodu ara..."
+                          value={productSearchTerm}
+                          onChange={(e) => setProductSearchTerm(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 glass border border-white/10 rounded-lg focus:outline-none focus:border-blue-500/50"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {filteredProducts.length > 0 ? (
+                        filteredProducts.map((product) => (
+                          <button
+                            key={product._id}
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, productId: product._id })
+                              setShowProductDropdown(false)
+                              setProductSearchTerm('')
+                            }}
+                            className={`w-full px-4 py-3 text-left hover:bg-white/5 transition-colors border-b border-white/5 ${
+                              formData.productId === product._id ? 'bg-blue-500/10' : ''
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Package className="w-4 h-4 text-gray-400" />
+                              <div className="flex-1">
+                                <div className="text-sm font-medium text-white">
+                                  {product.name}
+                                </div>
+                                <div className="text-xs text-gray-400 flex items-center gap-2">
+                                  <span>{product.code}</span>
+                                  <span>•</span>
+                                  <span className={product.stock > 0 ? 'text-green-400' : 'text-red-400'}>
+                                    Stok: {product.stock} {product.unit}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="text-sm font-medium text-green-400">
+                                {formatCurrency(product.price)}
+                              </div>
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-4 py-8 text-center text-gray-400 text-sm">
+                          Ürün bulunamadı
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {selectedProduct && (
