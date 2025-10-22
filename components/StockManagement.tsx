@@ -75,6 +75,8 @@ export default function StockManagement() {
   const [loadingMovements, setLoadingMovements] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [deleteBulkConfirm, setDeleteBulkConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [noStock, setNoStock] = useState(false)
   const [adjustmentForm, setAdjustmentForm] = useState<StockAdjustmentForm>({
     quantity: 0,
@@ -106,6 +108,7 @@ export default function StockManagement() {
   }, [shouldRefreshProducts])
 
   const fetchProducts = async () => {
+    setLoading(true)
     try {
       const response = await fetch('/api/products')
       if (response.ok) {
@@ -295,6 +298,7 @@ export default function StockManagement() {
       stock: noStock ? 0 : formData.stock
     }
     
+    setIsSubmitting(true)
     try {
       const url = editingProduct ? `/api/products/${editingProduct._id}` : '/api/products'
       const method = editingProduct ? 'PUT' : 'POST'
@@ -315,10 +319,13 @@ export default function StockManagement() {
     } catch (error) {
       console.error('Ürün kaydedilemedi:', error)
       showToast('Bir hata oluştu!', 'error')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   const handleDelete = async (id: string) => {
+    setIsDeleting(true)
     try {
       const response = await fetch(`/api/products/${id}`, { method: 'DELETE' })
       if (response.ok) {
@@ -330,8 +337,10 @@ export default function StockManagement() {
     } catch (error) {
       console.error('Ürün silinemedi:', error)
       showToast('Bir hata oluştu!', 'error')
+    } finally {
+      setIsDeleting(false)
+      setDeleteConfirm(null)
     }
-    setDeleteConfirm(null)
   }
 
   const toggleSelectAll = () => {
@@ -351,6 +360,7 @@ export default function StockManagement() {
   }
 
   const handleBulkDelete = async () => {
+    setIsDeleting(true)
     try {
       await Promise.all(
         selectedIds.map(id => 
@@ -364,6 +374,8 @@ export default function StockManagement() {
     } catch (error) {
       console.error('Toplu silme hatası:', error)
       showToast('Bir hata oluştu!', 'error')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -753,11 +765,14 @@ export default function StockManagement() {
             </div>
 
             <div className="lg:col-span-3 flex justify-end gap-3 pt-4">
-              <button type="button" onClick={resetForm} className="glass-button btn-secondary">
+              <button type="button" onClick={resetForm} disabled={isSubmitting} className="glass-button btn-secondary">
                 İptal
               </button>
-              <button type="submit" className="glass-button btn-primary">
-                {editingProduct ? 'Güncelle' : 'Kaydet'}
+              <button type="submit" disabled={isSubmitting} className="glass-button btn-primary flex items-center gap-2">
+                {isSubmitting && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                )}
+                <span>{editingProduct ? 'Güncelle' : 'Kaydet'}</span>
               </button>
             </div>
           </form>
@@ -920,6 +935,7 @@ export default function StockManagement() {
           title="Ürün Sil"
           message="Bu ürünü silmek istediğinizden emin misiniz?"
           onConfirm={() => handleDelete(deleteConfirm)}
+          isLoading={isDeleting}
         />
       )}
 
@@ -930,6 +946,7 @@ export default function StockManagement() {
           title="Toplu Silme"
           message={`${selectedIds.length} ürünü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`}
           onConfirm={handleBulkDelete}
+          isLoading={isDeleting}
         />
       )}
 

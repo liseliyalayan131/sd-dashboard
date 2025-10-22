@@ -39,6 +39,7 @@ export default function NotesManagement() {
   const [showForm, setShowForm] = useState(false)
   const [editingNote, setEditingNote] = useState<Note | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
@@ -101,6 +102,7 @@ export default function NotesManagement() {
   }
 
   const handleDelete = async (id: string) => {
+    setIsDeleting(true)
     try {
       const response = await fetch(`/api/notes?id=${id}`, { method: 'DELETE' })
       if (response.ok) {
@@ -112,8 +114,10 @@ export default function NotesManagement() {
     } catch (error) {
       console.error('Not silinemedi:', error)
       showToast('Bir hata oluştu!', 'error')
+    } finally {
+      setIsDeleting(false)
+      setDeleteConfirm(null)
     }
-    setDeleteConfirm(null)
   }
 
   const toggleStatus = async (note: Note) => {
@@ -551,6 +555,7 @@ export default function NotesManagement() {
           title="Not Sil"
           message="Bu notu silmek istediğinizden emin misiniz?"
           onConfirm={() => handleDelete(deleteConfirm)}
+          isLoading={isDeleting}
         />
       )}
     </div>

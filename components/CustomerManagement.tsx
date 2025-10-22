@@ -52,6 +52,7 @@ export default function CustomerManagement() {
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [deleteBulkConfirm, setDeleteBulkConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
   const [duplicatePhone, setDuplicatePhone] = useState<string | null>(null)
   const [formData, setFormData] = useState<CustomerForm>({
@@ -84,6 +85,7 @@ export default function CustomerManagement() {
   }, [selectedCustomer])
 
   const fetchCustomers = async () => {
+    setLoading(true)
     try {
       const response = await fetch('/api/customers')
       if (response.ok) {
@@ -265,6 +267,7 @@ export default function CustomerManagement() {
   }
 
   const handleDelete = async (id: string) => {
+    setIsDeleting(true)
     try {
       const response = await fetch(`/api/customers/${id}`, { method: 'DELETE' })
       if (response.ok) {
@@ -276,8 +279,10 @@ export default function CustomerManagement() {
     } catch (error) {
       console.error('Müşteri silinemedi:', error)
       showToast('Bir hata oluştu!', 'error')
+    } finally {
+      setIsDeleting(false)
+      setDeleteConfirm(null)
     }
-    setDeleteConfirm(null)
   }
 
   const toggleSelectAll = () => {
@@ -297,6 +302,7 @@ export default function CustomerManagement() {
   }
 
   const handleBulkDelete = async () => {
+    setIsDeleting(true)
     try {
       await Promise.all(
         selectedIds.map(id => 
@@ -310,6 +316,8 @@ export default function CustomerManagement() {
     } catch (error) {
       console.error('Toplu silme hatası:', error)
       showToast('Bir hata oluştu!', 'error')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -925,6 +933,7 @@ export default function CustomerManagement() {
         onConfirm={() => handleDelete(deleteConfirm!)}
         onClose={() => setDeleteConfirm(null)}
         confirmText="Sil"
+        isLoading={isDeleting}
       />
 
       <ConfirmDialog
@@ -934,6 +943,7 @@ export default function CustomerManagement() {
         onConfirm={handleBulkDelete}
         onClose={() => setDeleteBulkConfirm(false)}
         confirmText="Sil"
+        isLoading={isDeleting}
       />
 
       {duplicatePhone && (() => {

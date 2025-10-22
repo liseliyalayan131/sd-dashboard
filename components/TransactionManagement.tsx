@@ -87,6 +87,7 @@ export default function TransactionManagement() {
   }, [formData.productId, products])
 
   const fetchData = async () => {
+    setLoading(true)
     try {
       const [customersRes, productsRes, transactionsRes] = await Promise.all([
         fetch('/api/customers'),
