@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Navigation from '@/components/navigation/Navigation'
+import { useRefreshStore } from '@/store/useRefreshStore'
 import CustomSelect from '@/components/ui/CustomSelect'
+import Modal from '@/components/ui/Modal'
+import { ModalBody, ModalFooter } from '@/components/ui/ModalParts'
 import { 
   TrendingUp, 
   TrendingDown,
@@ -20,7 +23,8 @@ import {
   Award,
   Target,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  X
 } from 'lucide-react'
 
 interface ReportData {
@@ -69,6 +73,25 @@ export default function RaporlarPage() {
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
+  const [showRevenueModal, setShowRevenueModal] = useState(false)
+  const [showProfitModal, setShowProfitModal] = useState(false)
+  const [showSalesModal, setShowSalesModal] = useState(false)
+  const [showCostModal, setShowCostModal] = useState(false)
+  const [detailedTransactions, setDetailedTransactions] = useState<any[]>([])
+  const [detailedServices, setDetailedServices] = useState<any[]>([])
+
+  const { 
+    shouldRefreshReports, 
+    shouldRefreshTransactions,
+    shouldRefreshServices,
+    shouldRefreshCustomers,
+    shouldRefreshProducts,
+    resetReportsRefresh,
+    resetTransactionsRefresh,
+    resetServicesRefresh,
+    resetCustomersRefresh,
+    resetProductsRefresh
+  } = useRefreshStore()
 
   useEffect(() => {
     checkAuth()
@@ -79,6 +102,17 @@ export default function RaporlarPage() {
       fetchReportData()
     }
   }, [isAuthenticated, reportPeriod, customStartDate, customEndDate])
+
+  useEffect(() => {
+    if (shouldRefreshReports || shouldRefreshTransactions || shouldRefreshServices || shouldRefreshCustomers || shouldRefreshProducts) {
+      fetchReportData()
+      resetReportsRefresh()
+      resetTransactionsRefresh()
+      resetServicesRefresh()
+      resetCustomersRefresh()
+      resetProductsRefresh()
+    }
+  }, [shouldRefreshReports, shouldRefreshTransactions, shouldRefreshServices, shouldRefreshCustomers, shouldRefreshProducts])
 
   const checkAuth = async () => {
     try {
@@ -101,10 +135,10 @@ export default function RaporlarPage() {
     setIsLoading(true)
     try {
       const [transactionsRes, servicesRes, customersRes, productsRes] = await Promise.all([
-        fetch('/api/transactions'),
-        fetch('/api/services'),
-        fetch('/api/customers'),
-        fetch('/api/products')
+        fetch('/api/transactions', { cache: 'no-store' }),
+        fetch('/api/services', { cache: 'no-store' }),
+        fetch('/api/customers', { cache: 'no-store' }),
+        fetch('/api/products', { cache: 'no-store' })
       ])
 
       const transactions = transactionsRes.ok ? await transactionsRes.json() : []
@@ -126,6 +160,9 @@ export default function RaporlarPage() {
       const paymentsData = calculatePaymentsData(currentTransactions)
       const comparisonData = calculateComparison(currentTransactions, prevTransactions, products)
 
+      setDetailedTransactions(currentTransactions)
+      setDetailedServices(currentServices)
+      
       setReportData({
         sales: salesData,
         services: servicesData,
@@ -445,7 +482,10 @@ export default function RaporlarPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="glass-card ios-shadow p-6">
+            <div 
+              className="glass-card ios-shadow p-6 cursor-pointer hover:scale-105 transition-transform"
+              onClick={() => setShowRevenueModal(true)}
+            >
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 glass rounded-xl flex items-center justify-center border border-blue-500/30">
                   <DollarSign className="w-6 h-6 text-blue-400" />
@@ -462,7 +502,10 @@ export default function RaporlarPage() {
               </div>
             </div>
 
-            <div className="glass-card ios-shadow p-6">
+            <div 
+              className="glass-card ios-shadow p-6 cursor-pointer hover:scale-105 transition-transform"
+              onClick={() => setShowProfitModal(true)}
+            >
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 glass rounded-xl flex items-center justify-center border border-green-500/30">
                   <TrendingUp className="w-6 h-6 text-green-400" />
@@ -479,7 +522,10 @@ export default function RaporlarPage() {
               </div>
             </div>
 
-            <div className="glass-card ios-shadow p-6">
+            <div 
+              className="glass-card ios-shadow p-6 cursor-pointer hover:scale-105 transition-transform"
+              onClick={() => setShowSalesModal(true)}
+            >
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 glass rounded-xl flex items-center justify-center border border-purple-500/30">
                   <ShoppingCart className="w-6 h-6 text-purple-400" />
@@ -496,7 +542,10 @@ export default function RaporlarPage() {
               </div>
             </div>
 
-            <div className="glass-card ios-shadow p-6">
+            <div 
+              className="glass-card ios-shadow p-6 cursor-pointer hover:scale-105 transition-transform"
+              onClick={() => setShowCostModal(true)}
+            >
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 glass rounded-xl flex items-center justify-center border border-orange-500/30">
                   <TrendingDown className="w-6 h-6 text-orange-400" />
@@ -686,6 +735,392 @@ export default function RaporlarPage() {
             </div>
           </div>
         </div>
+
+        {showRevenueModal && (
+          <Modal
+            isOpen={showRevenueModal}
+            onClose={() => setShowRevenueModal(false)}
+            title="Gelir Detay Analizi"
+            size="lg"
+          >
+            <ModalBody>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="glass rounded-xl p-4">
+                    <div className="text-sm text-gray-400 mb-1">Satış Geliri</div>
+                    <div className="text-2xl font-bold text-blue-400">{formatCurrency(reportData.sales.revenue)}</div>
+                  </div>
+                  <div className="glass rounded-xl p-4">
+                    <div className="text-sm text-gray-400 mb-1">Servis Geliri</div>
+                    <div className="text-2xl font-bold text-green-400">{formatCurrency(reportData.services.revenue)}</div>
+                  </div>
+                  <div className="glass rounded-xl p-4">
+                    <div className="text-sm text-gray-400 mb-1">Toplam Gelir</div>
+                    <div className="text-2xl font-bold text-purple-400">{formatCurrency(reportData.sales.revenue + reportData.services.revenue)}</div>
+                  </div>
+                </div>
+
+                <div className="glass rounded-xl p-4">
+                  <h3 className="font-semibold mb-4 flex items-center gap-2">
+                    <ShoppingCart className="w-5 h-5 text-blue-400" />
+                    Satış İşlemleri
+                  </h3>
+                  <div className="max-h-64 overflow-y-auto space-y-2">
+                    {detailedTransactions.filter(t => t.type === 'satis').map((trans) => (
+                      <div key={trans._id} className="flex justify-between items-center p-3 glass-soft rounded-lg">
+                        <div>
+                          <div className="text-sm font-medium">{trans.productName}</div>
+                          <div className="text-xs text-gray-400">{trans.customerName} - {new Date(trans.createdAt).toLocaleDateString('tr-TR')}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-green-400">{formatCurrency(trans.totalPrice)}</div>
+                          <div className="text-xs text-gray-400">{trans.quantity} adet × {formatCurrency(trans.unitPrice)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="glass rounded-xl p-4">
+                  <h3 className="font-semibold mb-4 flex items-center gap-2">
+                    <Wrench className="w-5 h-5 text-yellow-400" />
+                    Servis İşlemleri
+                  </h3>
+                  <div className="max-h-64 overflow-y-auto space-y-2">
+                    {detailedServices.map((service) => (
+                      <div key={service._id} className="flex justify-between items-center p-3 glass-soft rounded-lg">
+                        <div>
+                          <div className="text-sm font-medium">{service.brand} {service.model}</div>
+                          <div className="text-xs text-gray-400">{service.customerName} - {new Date(service.createdAt).toLocaleDateString('tr-TR')}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-green-400">{formatCurrency(service.totalCost)}</div>
+                          <div className="text-xs text-gray-400">İşçilik: {formatCurrency(service.laborCost)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="glass rounded-xl p-4">
+                  <h3 className="font-semibold mb-4 flex items-center gap-2">
+                    <PieChart className="w-5 h-5 text-purple-400" />
+                    Ödeme Yöntemleri Dağılımı
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-300">Nakit</span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-32 h-2 glass-soft rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-green-500 rounded-full"
+                            style={{ width: `${(reportData.payments.cash / (reportData.sales.revenue + reportData.services.revenue)) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-bold text-green-400 w-24 text-right">{formatCurrency(reportData.payments.cash)}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-300">Kart</span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-32 h-2 glass-soft rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-blue-500 rounded-full"
+                            style={{ width: `${(reportData.payments.card / (reportData.sales.revenue + reportData.services.revenue)) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-bold text-blue-400 w-24 text-right">{formatCurrency(reportData.payments.card)}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-300">Havale</span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-32 h-2 glass-soft rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-purple-500 rounded-full"
+                            style={{ width: `${(reportData.payments.transfer / (reportData.sales.revenue + reportData.services.revenue)) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-bold text-purple-400 w-24 text-right">{formatCurrency(reportData.payments.transfer)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </ModalBody>
+            <ModalFooter>
+              <button
+                onClick={() => setShowRevenueModal(false)}
+                className="btn-glass-danger w-full"
+              >
+                Kapat
+              </button>
+            </ModalFooter>
+          </Modal>
+        )}
+
+        {showProfitModal && (
+          <Modal
+            isOpen={showProfitModal}
+            onClose={() => setShowProfitModal(false)}
+            title="Kar Detay Analizi"
+            size="lg"
+          >
+            <ModalBody>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="glass rounded-xl p-4">
+                    <div className="text-sm text-gray-400 mb-1">Toplam Gelir</div>
+                    <div className="text-xl font-bold text-blue-400">{formatCurrency(reportData.sales.revenue + reportData.services.revenue)}</div>
+                  </div>
+                  <div className="glass rounded-xl p-4">
+                    <div className="text-sm text-gray-400 mb-1">Toplam Maliyet</div>
+                    <div className="text-xl font-bold text-red-400">{formatCurrency(reportData.sales.cost + (reportData.services.revenue - reportData.services.profit))}</div>
+                  </div>
+                  <div className="glass rounded-xl p-4">
+                    <div className="text-sm text-gray-400 mb-1">Net Kar</div>
+                    <div className="text-xl font-bold text-green-400">{formatCurrency(reportData.sales.profit + reportData.services.profit)}</div>
+                  </div>
+                </div>
+
+                <div className="glass rounded-xl p-4">
+                  <h3 className="font-semibold mb-4">Satış Kar Analizi</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-400">Satış Geliri</span>
+                      <span className="text-sm font-bold text-blue-400">{formatCurrency(reportData.sales.revenue)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-400">Ürün Maliyeti</span>
+                      <span className="text-sm font-bold text-red-400">-{formatCurrency(reportData.sales.cost)}</span>
+                    </div>
+                    <div className="h-px bg-gray-700 my-2" />
+                    <div className="flex justify-between">
+                      <span className="text-sm font-semibold">Satış Karı</span>
+                      <span className="text-sm font-bold text-green-400">{formatCurrency(reportData.sales.profit)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-400">Kar Marjı</span>
+                      <span className="text-sm font-bold text-purple-400">{reportData.sales.profitMargin.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="glass rounded-xl p-4">
+                  <h3 className="font-semibold mb-4">Servis Kar Analizi</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-400">Toplam Gelir</span>
+                      <span className="text-sm font-bold text-blue-400">{formatCurrency(reportData.services.revenue)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-400">Parça Maliyeti</span>
+                      <span className="text-sm font-bold text-red-400">-{formatCurrency(reportData.services.revenue - reportData.services.profit)}</span>
+                    </div>
+                    <div className="h-px bg-gray-700 my-2" />
+                    <div className="flex justify-between">
+                      <span className="text-sm font-semibold">İşçilik Karı</span>
+                      <span className="text-sm font-bold text-green-400">{formatCurrency(reportData.services.profit)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-400">Ortalama Fatura</span>
+                      <span className="text-sm font-bold text-purple-400">{formatCurrency(reportData.services.avgTicket)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="glass rounded-xl p-4">
+                  <h3 className="font-semibold mb-4">Kar Trendi</h3>
+                  <div className="flex items-center justify-between p-4 glass-soft rounded-lg">
+                    <div className="flex items-center gap-3">
+                      {reportData.comparison.profitGrowth >= 0 ? (
+                        <TrendingUp className="w-8 h-8 text-green-400" />
+                      ) : (
+                        <TrendingDown className="w-8 h-8 text-red-400" />
+                      )}
+                      <div>
+                        <div className="text-sm text-gray-400">Önceki Döneme Göre</div>
+                        <div className={`text-xl font-bold ${reportData.comparison.profitGrowth >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {formatPercent(reportData.comparison.profitGrowth)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </ModalBody>
+            <ModalFooter>
+              <button
+                onClick={() => setShowProfitModal(false)}
+                className="btn-glass-danger w-full"
+              >
+                Kapat
+              </button>
+            </ModalFooter>
+          </Modal>
+        )}
+
+        {showSalesModal && (
+          <Modal
+            isOpen={showSalesModal}
+            onClose={() => setShowSalesModal(false)}
+            title="Satış Detay Analizi"
+            size="lg"
+          >
+            <ModalBody>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="glass rounded-xl p-4">
+                    <div className="text-sm text-gray-400 mb-1">Toplam Satış</div>
+                    <div className="text-2xl font-bold text-purple-400">{reportData.sales.count}</div>
+                  </div>
+                  <div className="glass rounded-xl p-4">
+                    <div className="text-sm text-gray-400 mb-1">Toplam Gelir</div>
+                    <div className="text-2xl font-bold text-green-400">{formatCurrency(reportData.sales.revenue)}</div>
+                  </div>
+                  <div className="glass rounded-xl p-4">
+                    <div className="text-sm text-gray-400 mb-1">Ortalama Sepet</div>
+                    <div className="text-2xl font-bold text-blue-400">{formatCurrency(reportData.sales.count > 0 ? reportData.sales.revenue / reportData.sales.count : 0)}</div>
+                  </div>
+                  <div className="glass rounded-xl p-4">
+                    <div className="text-sm text-gray-400 mb-1">Büyüme</div>
+                    <div className={`text-2xl font-bold ${reportData.comparison.salesGrowth >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {formatPercent(reportData.comparison.salesGrowth)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="glass rounded-xl p-4">
+                  <h3 className="font-semibold mb-4">Tüm Satış İşlemleri</h3>
+                  <div className="max-h-96 overflow-y-auto space-y-2">
+                    {detailedTransactions.filter(t => t.type === 'satis').map((trans) => (
+                      <div key={trans._id} className="flex justify-between items-center p-3 glass-soft rounded-lg hover:bg-white/5 transition-colors">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="text-sm font-medium">{trans.productName}</div>
+                            <div className="text-xs glass-soft px-2 py-0.5 rounded">{trans.productCode}</div>
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {trans.customerName} • {trans.customerPhone}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(trans.createdAt).toLocaleString('tr-TR')}
+                          </div>
+                        </div>
+                        <div className="text-right ml-4">
+                          <div className="text-sm font-bold text-green-400">{formatCurrency(trans.totalPrice)}</div>
+                          <div className="text-xs text-gray-400">{trans.quantity} × {formatCurrency(trans.unitPrice)}</div>
+                          <div className="text-xs glass-soft px-2 py-0.5 rounded mt-1">
+                            {trans.paymentMethod === 'nakit' ? 'Nakit' : trans.paymentMethod === 'kart' ? 'Kart' : 'Havale'}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </ModalBody>
+            <ModalFooter>
+              <button
+                onClick={() => setShowSalesModal(false)}
+                className="btn-glass-danger w-full"
+              >
+                Kapat
+              </button>
+            </ModalFooter>
+          </Modal>
+        )}
+
+        {showCostModal && (
+          <Modal
+            isOpen={showCostModal}
+            onClose={() => setShowCostModal(false)}
+            title="Maliyet Detay Analizi"
+            size="lg"
+          >
+            <ModalBody>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="glass rounded-xl p-4">
+                    <div className="text-sm text-gray-400 mb-1">Ürün Maliyeti</div>
+                    <div className="text-2xl font-bold text-red-400">{formatCurrency(reportData.sales.cost)}</div>
+                  </div>
+                  <div className="glass rounded-xl p-4">
+                    <div className="text-sm text-gray-400 mb-1">Servis Parça</div>
+                    <div className="text-2xl font-bold text-orange-400">{formatCurrency(reportData.services.revenue - reportData.services.profit)}</div>
+                  </div>
+                  <div className="glass rounded-xl p-4">
+                    <div className="text-sm text-gray-400 mb-1">Toplam Maliyet</div>
+                    <div className="text-2xl font-bold text-purple-400">{formatCurrency(reportData.sales.cost + (reportData.services.revenue - reportData.services.profit))}</div>
+                  </div>
+                </div>
+
+                <div className="glass rounded-xl p-4">
+                  <h3 className="font-semibold mb-4">Maliyet Dağılımı</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-300">Satış Ürün Maliyeti</span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-32 h-2 glass-soft rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-red-500 rounded-full"
+                            style={{ width: `${(reportData.sales.cost / (reportData.sales.cost + (reportData.services.revenue - reportData.services.profit))) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-bold text-red-400 w-32 text-right">{formatCurrency(reportData.sales.cost)}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-300">Servis Parça Maliyeti</span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-32 h-2 glass-soft rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-orange-500 rounded-full"
+                            style={{ width: `${((reportData.services.revenue - reportData.services.profit) / (reportData.sales.cost + (reportData.services.revenue - reportData.services.profit))) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-bold text-orange-400 w-32 text-right">{formatCurrency(reportData.services.revenue - reportData.services.profit)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="glass rounded-xl p-4">
+                  <h3 className="font-semibold mb-4">Maliyet/Gelir Karşılaştırması</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-400">Toplam Gelir</span>
+                      <span className="text-sm font-bold text-green-400">{formatCurrency(reportData.sales.revenue + reportData.services.revenue)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-400">Toplam Maliyet</span>
+                      <span className="text-sm font-bold text-red-400">-{formatCurrency(reportData.sales.cost + (reportData.services.revenue - reportData.services.profit))}</span>
+                    </div>
+                    <div className="h-px bg-gray-700 my-2" />
+                    <div className="flex justify-between">
+                      <span className="text-sm font-semibold">Net Kar</span>
+                      <span className="text-sm font-bold text-green-400">{formatCurrency(reportData.sales.profit + reportData.services.profit)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-400">Maliyet Oranı</span>
+                      <span className="text-sm font-bold text-orange-400">
+                        {((reportData.sales.cost + (reportData.services.revenue - reportData.services.profit)) / (reportData.sales.revenue + reportData.services.revenue) * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </ModalBody>
+            <ModalFooter>
+              <button
+                onClick={() => setShowCostModal(false)}
+                className="btn-glass-danger w-full"
+              >
+                Kapat
+              </button>
+            </ModalFooter>
+          </Modal>
+        )}
       </div>
     </div>
   )

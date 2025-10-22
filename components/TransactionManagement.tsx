@@ -52,7 +52,7 @@ interface TransactionForm {
 
 export default function TransactionManagement() {
   const { showToast } = useToast()
-  const { triggerCustomersRefresh, triggerProductsRefresh } = useRefreshStore()
+  const { triggerCustomersRefresh, triggerProductsRefresh, triggerReportsRefresh, triggerTransactionsRefresh } = useRefreshStore()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -142,6 +142,10 @@ export default function TransactionManagement() {
 
       if (response.ok) {
         await fetchData()
+        triggerCustomersRefresh()
+        triggerProductsRefresh()
+        triggerReportsRefresh()
+        triggerTransactionsRefresh()
         resetForm()
         showToast('İşlem başarıyla kaydedildi!', 'success')
       } else {
@@ -204,6 +208,8 @@ export default function TransactionManagement() {
         const data = await response.json()
         triggerCustomersRefresh()
         triggerProductsRefresh()
+        triggerReportsRefresh()
+        triggerTransactionsRefresh()
         showToast(`${data.deletedCount} işlem silindi!`, 'success')
       } else {
         const error = await response.json()

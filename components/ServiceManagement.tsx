@@ -74,7 +74,7 @@ interface ServiceForm {
 
 export default function ServiceManagement() {
   const { showToast } = useToast()
-  const { shouldRefreshCustomers, shouldRefreshProducts, resetCustomersRefresh, resetProductsRefresh, triggerProductsRefresh, triggerCustomersRefresh } = useRefreshStore()
+  const { shouldRefreshCustomers, shouldRefreshProducts, resetCustomersRefresh, resetProductsRefresh, triggerProductsRefresh, triggerCustomersRefresh, triggerServicesRefresh, triggerReportsRefresh } = useRefreshStore()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -191,6 +191,8 @@ export default function ServiceManagement() {
         triggerProductsRefresh()
       }
       triggerCustomersRefresh()
+      triggerServicesRefresh()
+      triggerReportsRefresh()
       resetForm()
       fetchData()
     } catch (error: any) {
@@ -273,6 +275,8 @@ export default function ServiceManagement() {
       showToast('Servis silindi!', 'success')
       triggerProductsRefresh()
       triggerCustomersRefresh()
+      triggerServicesRefresh()
+      triggerReportsRefresh()
       fetchData()
     } catch (error) {
       showToast('Silme işlemi başarısız!', 'error')
