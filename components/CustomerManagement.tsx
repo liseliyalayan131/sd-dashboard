@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, Edit, Trash2, User, Phone, Mail, Search, Calendar, DollarSign, ShoppingCart, Wrench, Package, CheckSquare, Square, Download, Upload, ArrowDown, ArrowUp, Eye } from 'lucide-react'
+import { Plus, Edit, Trash2, User, Phone, Mail, Search, Calendar, DollarSign, ShoppingCart, Wrench, Package, CheckSquare, Square, Download, Upload, ArrowDown, ArrowUp, Eye, RefreshCw } from 'lucide-react'
 import { useToast } from '@/components/ui/ToastContext'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import Modal from '@/components/ui/Modal'
@@ -55,6 +55,7 @@ export default function CustomerManagement() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
   const [duplicatePhone, setDuplicatePhone] = useState<string | null>(null)
+  const [isSyncing, setIsSyncing] = useState(false)
   const [formData, setFormData] = useState<CustomerForm>({
     firstName: '',
     lastName: '',
@@ -139,6 +140,25 @@ export default function CustomerManagement() {
       showToast('Detaylar yüklenirken hata oluştu', 'error')
     } finally {
       setDetailsLoading(false)
+    }
+  }
+
+  const handleSync = async () => {
+    setIsSyncing(true)
+    try {
+      const response = await fetch('/api/customers/sync', { method: 'POST' })
+      if (!response.ok) throw new Error('Sync failed')
+      
+      const data = await response.json()
+      showToast(data.message, 'success')
+      await fetchCustomers()
+      if (selectedCustomer) {
+        await fetchCustomerDetails(selectedCustomer)
+      }
+    } catch (error) {
+      showToast('Senkronizasyon başarısız!', 'error')
+    } finally {
+      setIsSyncing(false)
     }
   }
 
@@ -442,6 +462,15 @@ export default function CustomerManagement() {
             id="import-file"
           />
           <button
+            onClick={handleSync}
+            disabled={isSyncing}
+            className="glass-button bg-purple-500/10 border-purple-500/30 text-purple-400 hover:bg-purple-500/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Eski kayıtları senkronize et"
+          >
+            <RefreshCw className={`h-5 w-5 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Senkronize ediliyor...' : 'Senkronize Et'}</span>
+          </button>
+          <button
             onClick={handleExport}
             className="glass-button bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20 flex items-center gap-2"
           >
@@ -699,7 +728,7 @@ export default function CustomerManagement() {
                       {formatCurrency(customer.totalSpent)}
                     </div>
                     <div className="text-xs text-gray-400">
-                      {customer.visitCount} ziyaret
+                      {customer.visitCount > 0 ? `${customer.visitCount} ziyaret` : 'Hen\u00fcz ziyaret yok'}
                     </div>
                   </td>
                   <td className="px-4 py-4">
@@ -789,9 +818,12 @@ export default function CustomerManagement() {
                     </div>
                   </div>
                   <div className="glass-card p-4">
-                    <div className="text-sm text-gray-400">Alışveriş Sayısı</div>
+                    <div className="text-sm text-gray-400">Toplam Ziyaret</div>
                     <div className="text-xl font-bold text-blue-400 mt-1">
-                      {customerDetails.transactions.length}
+                      {customerDetails.transactions.length + customerDetails.services.length}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {customerDetails.transactions.length} alışveriş + {customerDetails.services.length} servis
                     </div>
                   </div>
                   <div className="glass-card p-4">

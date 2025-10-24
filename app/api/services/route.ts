@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/mongodb'
 import Service from '@/lib/models/Service'
 import Product from '@/lib/models/Product'
+import Customer from '@/lib/models/Customer'
 import StockMovement from '@/lib/models/StockMovement'
 import mongoose from 'mongoose'
 
@@ -36,6 +37,15 @@ export async function POST(request: Request) {
     }
     
     const service = await Service.create(body)
+    
+    const customer = await Customer.findOne({ phone: body.customerPhone })
+    if (customer) {
+      customer.totalSpent += (body.totalCost || 0)
+      customer.visitCount += 1
+      customer.lastVisit = new Date()
+      await customer.save()
+    }
+    
     return NextResponse.json(service, { status: 201 })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create service' }, { status: 500 })
@@ -48,10 +58,20 @@ export async function PUT(request: Request) {
     const body = await request.json()
     const { _id, ...updateData } = body
 
+    const oldService = await Service.findById(_id)
+    if (!oldService) {
+      return NextResponse.json({ error: 'Service not found' }, { status: 404 })
+    }
+
     const service = await Service.findByIdAndUpdate(_id, updateData, { new: true })
     
-    if (!service) {
-      return NextResponse.json({ error: 'Service not found' }, { status: 404 })
+    if (oldService.totalCost !== updateData.totalCost) {
+      const customer = await Customer.findOne({ phone: service.customerPhone })
+      if (customer) {
+        const costDifference = (updateData.totalCost || 0) - (oldService.totalCost || 0)
+        customer.totalSpent += costDifference
+        await customer.save()
+      }
     }
 
     return NextResponse.json(service)
@@ -99,6 +119,13 @@ export async function DELETE(request: NextRequest) {
           })
         }
       }
+    }
+
+    const customer = await Customer.findOne({ phone: service.customerPhone })
+    if (customer) {
+      customer.totalSpent = Math.max(0, customer.totalSpent - (service.totalCost || 0))
+      customer.visitCount = Math.max(0, customer.visitCount - 1)
+      await customer.save()
     }
 
     await Service.findByIdAndDelete(id)
