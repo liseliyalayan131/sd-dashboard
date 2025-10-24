@@ -6,6 +6,8 @@ import { useToast } from '@/components/ui/ToastContext'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import Modal from '@/components/ui/Modal'
+import { ModalBody } from '@/components/ui/ModalParts'
 import { useRefreshStore } from '@/store/useRefreshStore'
 
 interface Customer {
@@ -67,6 +69,7 @@ export default function TransactionManagement() {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
   const [productSearchTerm, setProductSearchTerm] = useState('')
   const [showProductDropdown, setShowProductDropdown] = useState(false)
+  const [showSalesModal, setShowSalesModal] = useState(false)
   const [formData, setFormData] = useState<TransactionForm>({
     customerId: '',
     productId: '',
@@ -446,7 +449,7 @@ export default function TransactionManagement() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="glass-card ios-shadow p-6">
+          <div className="glass-card ios-shadow p-6 cursor-pointer hover:border-green-500/50 transition-all" onClick={() => setShowSalesModal(true)}>
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 glass rounded-xl flex items-center justify-center border border-green-500/30">
                 <TrendingUp className="w-6 h-6 text-green-400" />
@@ -885,6 +888,103 @@ export default function TransactionManagement() {
           </div>
         )}
       </div>
+
+      {showSalesModal && (
+        <Modal
+          isOpen={showSalesModal}
+          onClose={() => setShowSalesModal(false)}
+          title="Tüm Satışlar"
+          description={`${reportPeriod === 'all' ? 'Tüm zamanlar' : periodOptions.find(p => p.value === reportPeriod)?.label} için satış detayları`}
+          icon={<TrendingUp className="w-6 h-6 text-green-400" />}
+          size="xl"
+        >
+          <ModalBody>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="glass-card p-4">
+                  <div className="text-sm text-gray-400">Toplam Satış</div>
+                  <div className="text-2xl font-bold text-green-400 mt-1">
+                    {formatCurrency(stats.totalSales)}
+                  </div>
+                </div>
+                <div className="glass-card p-4">
+                  <div className="text-sm text-gray-400">İşlem Sayısı</div>
+                  <div className="text-2xl font-bold text-blue-400 mt-1">
+                    {stats.salesCount}
+                  </div>
+                </div>
+                <div className="glass-card p-4">
+                  <div className="text-sm text-gray-400">Ortalama Satış</div>
+                  <div className="text-2xl font-bold text-purple-400 mt-1">
+                    {stats.salesCount > 0 ? formatCurrency(stats.totalSales / stats.salesCount) : formatCurrency(0)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <ShoppingCart className="w-5 h-5 text-green-400" />
+                  Satış Detayları
+                </h3>
+                <div className="max-h-96 overflow-y-auto space-y-2">
+                  {filterTransactionsByPeriod(transactions)
+                    .filter(t => t.type === 'satis')
+                    .length > 0 ? (
+                    filterTransactionsByPeriod(transactions)
+                      .filter(t => t.type === 'satis')
+                      .map((transaction) => (
+                        <div key={transaction._id} className="glass rounded-xl p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-start gap-3 flex-1">
+                              <User className="w-5 h-5 text-gray-400 mt-1" />
+                              <div>
+                                <div className="text-sm font-medium text-white">{transaction.customerName}</div>
+                                <div className="text-xs text-gray-400 flex items-center gap-1 mt-1">
+                                  <Phone className="w-3 h-3" />
+                                  {transaction.customerPhone}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-bold text-green-400">
+                                {formatCurrency(transaction.totalPrice)}
+                              </div>
+                              <div className="text-xs text-gray-400 capitalize">
+                                {transaction.paymentMethod}
+                                {transaction.paymentMethod === 'kart' && transaction.installments > 1 && (
+                                  <span className="ml-1">({transaction.installments}x)</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 text-sm border-t border-white/10 pt-3">
+                            <div className="flex items-center gap-2 flex-1">
+                              <Package className="w-4 h-4 text-gray-400" />
+                              <div>
+                                <div className="text-white">{transaction.productName}</div>
+                                <div className="text-xs text-gray-400">{transaction.productCode}</div>
+                              </div>
+                            </div>
+                            <div className="text-gray-400">x{transaction.quantity}</div>
+                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                              <Calendar className="w-3 h-3" />
+                              {formatDate(transaction.createdAt)}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                  ) : (
+                    <div className="text-center py-12">
+                      <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-400">Bu periyotta satış kaydı yok</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </ModalBody>
+        </Modal>
+      )}
 
       <ConfirmDialog
         isOpen={showDeleteConfirm}
