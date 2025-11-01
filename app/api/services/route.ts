@@ -63,12 +63,20 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Service not found' }, { status: 404 })
     }
 
-    const service = await Service.findByIdAndUpdate(_id, updateData, { new: true })
+    const productsTotal = updateData.usedProducts?.reduce((sum: number, p: any) => sum + (p.unitPrice * p.quantity), 0) || 0
+    const totalCost = productsTotal + (updateData.partsCost || 0) + (updateData.laborCost || 0)
     
-    if (oldService.totalCost !== updateData.totalCost) {
+    const finalUpdateData = {
+      ...updateData,
+      totalCost
+    }
+
+    const service = await Service.findByIdAndUpdate(_id, finalUpdateData, { new: true })
+    
+    if (oldService.totalCost !== totalCost) {
       const customer = await Customer.findOne({ phone: service.customerPhone })
       if (customer) {
-        const costDifference = (updateData.totalCost || 0) - (oldService.totalCost || 0)
+        const costDifference = totalCost - (oldService.totalCost || 0)
         customer.totalSpent += costDifference
         await customer.save()
       }
@@ -76,6 +84,7 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(service)
   } catch (error) {
+    console.error('PUT Service Error:', error)
     return NextResponse.json({ error: 'Failed to update service' }, { status: 500 })
   }
 }

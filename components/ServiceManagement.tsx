@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Plus, Wrench, Calendar, DollarSign, User, Phone, Package, CheckCircle, XCircle, Edit, Trash2, Search, TrendingUp, TrendingDown, Wallet, Eye, MessageCircle } from 'lucide-react'
 import { useToast } from '@/components/ui/ToastContext'
 import CustomSelect from '@/components/ui/CustomSelect'
@@ -75,6 +75,7 @@ interface ServiceForm {
 export default function ServiceManagement() {
   const { showToast } = useToast()
   const { shouldRefreshCustomers, shouldRefreshProducts, resetCustomersRefresh, resetProductsRefresh, triggerProductsRefresh, triggerCustomersRefresh, triggerServicesRefresh, triggerReportsRefresh } = useRefreshStore()
+  const formRef = useRef<HTMLDivElement>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -347,6 +348,9 @@ export default function ServiceManagement() {
       notes: service.notes
     })
     setShowForm(true)
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
   }
 
   const resetForm = () => {
@@ -621,7 +625,7 @@ export default function ServiceManagement() {
       </div>
 
       {showForm && (
-        <div className="glass-card ios-shadow p-6 animate-scale-in">
+        <div ref={formRef} className="glass-card ios-shadow p-6 animate-scale-in">
           <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
             <Wrench className="w-6 h-6 text-blue-400" />
             {editingId ? 'Servis Düzenle' : 'Yeni Servis Kaydı'}

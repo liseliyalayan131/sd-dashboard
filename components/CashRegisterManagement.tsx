@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { 
   DollarSign, Plus, Minus, Save, TrendingUp, TrendingDown, Calendar, 
   Clock, CheckCircle, Eye, Filter, Download, BarChart2, PieChart,
-  Activity, AlertCircle, History, RefreshCw, FileText, ArrowUpDown
+  Activity, AlertCircle, History, RefreshCw, FileText, ArrowUpDown, Trash2
 } from 'lucide-react'
 import { useToast } from '@/components/ui/ToastContext'
 import Modal from '@/components/ui/Modal'
@@ -76,11 +76,16 @@ export default function CashRegisterManagement() {
   const [showCloseModal, setShowCloseModal] = useState(false)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showClearModal, setShowClearModal] = useState(false)
+  const [showClearConfirmModal, setShowClearConfirmModal] = useState(false)
   const [selectedRegisterDetail, setSelectedRegisterDetail] = useState<string | null>(null)
   
   const [openingAmount, setOpeningAmount] = useState('')
   const [actualCash, setActualCash] = useState('')
   const [closeNotes, setCloseNotes] = useState('')
+  const [clearPassword, setClearPassword] = useState('')
+  const [isClearning, setIsClearing] = useState(false)
+  const [clearError, setClearError] = useState('')
   
   const [transactionType, setTransactionType] = useState<'giris' | 'cikis'>('giris')
   const [transactionAmount, setTransactionAmount] = useState('')
@@ -276,6 +281,52 @@ export default function CashRegisterManagement() {
     a.href = url
     a.download = `kasa-raporu-${format(new Date(), 'yyyy-MM-dd')}.csv`
     a.click()
+  }
+
+  const handleClearPasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setClearError('')
+    setShowClearModal(false)
+    setShowClearConfirmModal(true)
+  }
+
+  const handleClearHistory = async () => {
+    setIsClearing(true)
+    setClearError('')
+    
+    try {
+      const res = await fetch('/api/cash-register/clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: clearPassword })
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        showToast('Tüm kasa geçmişi silindi!', 'success')
+        setShowClearConfirmModal(false)
+        setClearPassword('')
+        fetchData()
+      } else {
+        setClearError(data.error || 'Bir hata oluştu!')
+        setShowClearConfirmModal(false)
+        setShowClearModal(true)
+      }
+    } catch (error) {
+      setClearError('Bir hata oluştu!')
+      setShowClearConfirmModal(false)
+      setShowClearModal(true)
+    } finally {
+      setIsClearing(false)
+    }
+  }
+
+  const resetClearModals = () => {
+    setShowClearModal(false)
+    setShowClearConfirmModal(false)
+    setClearPassword('')
+    setClearError('')
   }
 
   const getCategoryLabel = (category: string) => {
@@ -580,6 +631,17 @@ export default function CashRegisterManagement() {
             >
               {sortOrder === 'desc' ? '↓' : '↑'}
             </button>
+
+            {registers.length > 0 && (
+              <button
+                onClick={() => setShowClearModal(true)}
+                className="glass-button bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20 flex items-center gap-2"
+                title="Tüm Geçmişi Sil"
+              >
+                <Trash2 className="w-4 h-4" />
+                Geçmişi Sil
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
