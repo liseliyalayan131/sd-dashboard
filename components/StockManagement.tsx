@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Plus, Edit, Trash2, Package, Search, AlertTriangle, TrendingDown, TrendingUp, DollarSign, Wallet, BarChart3, History, Clock, CheckSquare, Square, Download, Upload } from 'lucide-react'
 import { useToast } from '@/components/ui/ToastContext'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -61,6 +61,7 @@ interface StockAdjustmentForm {
 export default function StockManagement() {
   const { showToast } = useToast()
   const { shouldRefreshProducts, resetProductsRefresh } = useRefreshStore()
+  const formRef = useRef<HTMLDivElement>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -411,6 +412,9 @@ export default function StockManagement() {
     setNoStock(product.stock === 0)
     setEditingProduct(product)
     setShowForm(true)
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
   }
 
   const filteredProducts = products.filter(product => {
@@ -647,7 +651,7 @@ export default function StockManagement() {
       </div>
 
       {showForm && (
-        <div className="glass-card p-6 animate-scale-in">
+        <div ref={formRef} className="glass-card p-6 animate-scale-in">
           <h3 className="text-lg font-semibold text-white mb-4">
             {editingProduct ? 'Ürün Düzenle' : 'Yeni Ürün Ekle'}
           </h3>

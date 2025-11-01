@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Plus, Edit, Trash2, User, Phone, Mail, Search, Calendar, DollarSign, ShoppingCart, Wrench, Package, CheckSquare, Square, Download, Upload, ArrowDown, ArrowUp, Eye } from 'lucide-react'
 import { useToast } from '@/components/ui/ToastContext'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -41,6 +41,7 @@ interface CustomerDetails {
 export default function CustomerManagement() {
   const { showToast } = useToast()
   const { shouldRefreshCustomers, resetCustomersRefresh } = useRefreshStore()
+  const formRef = useRef<HTMLDivElement>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -346,6 +347,9 @@ export default function CustomerManagement() {
     })
     setEditingCustomer(customer)
     setShowForm(true)
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
   }
 
   const filteredCustomers = useMemo(() => {
@@ -539,7 +543,7 @@ export default function CustomerManagement() {
       </div>
 
       {showForm && (
-        <div className="glass-card p-6 animate-scale-in">
+        <div ref={formRef} className="glass-card p-6 animate-scale-in">
           <h3 className="text-lg font-semibold text-white mb-4">
             {editingCustomer ? 'Müşteri Düzenle' : 'Yeni Müşteri Ekle'}
           </h3>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { 
   Plus, 
   Edit, 
@@ -53,6 +53,7 @@ interface ReceivableForm {
 
 export default function ReceivableManagement() {
   const { showToast } = useToast()
+  const formRef = useRef<HTMLDivElement>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [receivables, setReceivables] = useState<Receivable[]>([])
   const [loading, setLoading] = useState(true)
@@ -204,6 +205,9 @@ export default function ReceivableManagement() {
     })
     setEditingReceivable(receivable)
     setShowForm(true)
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
   }
 
   const filteredReceivables = receivables.filter(receivable => {
@@ -326,7 +330,7 @@ export default function ReceivableManagement() {
       </div>
 
       {showForm && (
-        <div className="glass-card p-6 animate-scale-in">
+        <div ref={formRef} className="glass-card p-6 animate-scale-in">
           <h3 className="text-lg font-semibold text-white mb-4">
             {editingReceivable ? 'Kayıt Düzenle' : 'Yeni Kayıt Ekle'}
           </h3>
