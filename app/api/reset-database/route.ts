@@ -5,8 +5,6 @@ import Product from '@/lib/models/Product'
 import Transaction from '@/lib/models/Transaction'
 import Service from '@/lib/models/Service'
 import Receivable from '@/lib/models/Receivable'
-import CashRegister from '@/lib/models/CashRegister'
-import CashTransaction from '@/lib/models/CashTransaction'
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,9 +21,7 @@ export async function POST(request: NextRequest) {
       Product.deleteMany({}),
       Transaction.deleteMany({}),
       Service.deleteMany({}),
-      Receivable.deleteMany({}),
-      CashRegister.deleteMany({}),
-      CashTransaction.deleteMany({})
+      Receivable.deleteMany({})
     ])
 
     return NextResponse.json({ 

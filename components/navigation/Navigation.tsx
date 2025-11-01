@@ -15,8 +15,7 @@ import {
   Sparkles,
   LogOut,
   BarChart3,
-  Trash2,
-  Wallet
+  Trash2
 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { ModalBody, ModalFooter } from '@/components/ui/ModalParts'
@@ -26,11 +25,6 @@ const navigationItems = [
     title: 'Anasayfa',
     href: '/dashboard',
     icon: Home,
-  },
-  {
-    title: 'Kasa',
-    href: '/kasa',
-    icon: Wallet,
   },
   {
     title: 'Hesap Takibi',
@@ -329,7 +323,6 @@ export default function Navigation({ onLogout }: NavigationProps) {
               <li>Tüm satış işlemleri</li>
               <li>Tüm servis kayıtları</li>
               <li>Tüm alacak/verecek kayıtları</li>
-              <li>Tüm kasa hareketleri</li>
             </ul>
             <div className="glass-card border border-red-500/30 p-4 rounded-xl">
               <p className="text-red-400 font-bold text-center">Bu işlem geri alınamaz!</p>
